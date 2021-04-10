@@ -1,0 +1,4 @@
+name = "LigParGen2Mol"
+uuid = "5c105ad6-9484-420b-a8a5-9e6c729a07dc"
+authors = ["Vasily Pisarev <pisarevvv@gmail.com>"]
+version = "0.1.0"
