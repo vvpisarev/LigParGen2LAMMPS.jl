@@ -3,8 +3,7 @@ export write_mol, write_ff, write_mol_and_ff
 """
     write_mol(f, mol::Molecule)
 
-Write the molecular topology of `mol` into `f`. `f` can 
-be an I/O stream or a filename.
+Write the molecular topology of `mol` into `f`. `f` can be an I/O stream or a filename.
 """
 function write_mol(io, mol::Molecule)
     println(io, mol.comment)
@@ -32,10 +31,17 @@ function write_mol(fname::AbstractString, mol::Molecule)
 end
 
 """
+    write_mol(f, ligpargenfile::AbstractString)
+
+Read the molecular topology from file named `ligpargenfile` and write it into `f`. `f` can
+    be an I/O stream or a filename.
+"""
+write_mol(f, mol::AbstractString) = write_mol(f, read_lpg_data(mol))
+
+"""
     write_ff(f, mol::Molecule)
 
-Write the forcefield parameters of `mol` into `f`. `f` can 
-be an I/O stream or a filename.
+Write the forcefield parameters of `mol` into `f`. `f` can be an I/O stream or a filename.
 """
 function write_ff(io, mol::Molecule)
     println(io,
@@ -70,21 +76,21 @@ function write_ff(io, mol::Molecule)
     end
 
     !isempty(mol.angle_coeffs) && println(io)
-    
+
     for atype in 1:length(mol.angle_coeffs)
         k, θ0 = mol.angle_coeffs[atype]
         join(io, ("angle_coeff    ", atype, k, θ0, '\n'), ' ')
     end
 
     !isempty(mol.dihed_coeffs) && println(io)
-    
+
     for dtype in 1:length(mol.dihed_coeffs)
         c1, c2, c3, c4 = mol.dihed_coeffs[dtype]
         join(io, ("dihedral_coeff    ", dtype, c1, c2, c3, c4, '\n'), ' ')
     end
 
     !isempty(mol.improper_coeffs) && println(io)
-    
+
     for itype in 1:length(mol.improper_coeffs)
         k, d, n = mol.improper_coeffs[itype]
         join(io, ("improper_coeff    ", itype, k, d, n, '\n'), ' ')
@@ -98,9 +104,17 @@ function write_ff(fname::AbstractString, mol::Molecule)
 end
 
 """
+    write_ff(f, ligpargenfile::AbstractString)
+
+Read the molecular topology from file named `ligpargenfile` and write its forcefield
+    into `f`. `f` can be an I/O stream or a filename.
+"""
+write_ff(f, mol::AbstractString) = write_ff(f, read_lpg_data(mol))
+
+"""
     write_mol_and_ff(fmask::AbstractString, mol::Molecule)
 
-Write files "fmask.txt" and "fmask.ff" with molecular topology 
+Write files "fmask.txt" and "fmask.ff" with molecular topology
 and forcefield parameters of `mol`, respectively.
 """
 function write_mol_and_ff(fmask::AbstractString, mol::Molecule)
@@ -110,6 +124,14 @@ function write_mol_and_ff(fmask::AbstractString, mol::Molecule)
     end
     return
 end
+
+"""
+    write_ff(f, ligpargenfile::AbstractString)
+
+Read the molecular topology and forcefield parameters from `ligpargenfile` and write them
+    into files "fmask.txt" and "fmask.ff", respectively.
+"""
+write_mol_and_ff(fmask, mol::AbstractString) = write_mol_and_ff(fmask, read_lpg_data(mol))
 
 function print_coords(io, coords)
     println(io, "\nCoords\n")
