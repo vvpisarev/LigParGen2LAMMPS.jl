@@ -126,7 +126,7 @@ function write_mol_and_ff(fmask::AbstractString, mol::Molecule)
 end
 
 """
-    write_ff(f, ligpargenfile::AbstractString)
+    write_mol_and_ff(fmask::AbstractString, ligpargenfile::AbstractString)
 
 Read the molecular topology and forcefield parameters from `ligpargenfile` and write them
     into files "fmask.txt" and "fmask.ff", respectively.
