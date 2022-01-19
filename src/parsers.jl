@@ -198,6 +198,12 @@ function read_atoms!(coord, charge, io::IO, natoms::Integer)
         charge[i] = q
         coord[i] = (x, y, z)
     end
+
+    total_charge = sum(charge)
+    if abs(total_charge) > natoms * eps(Float64)
+        @warn "Total charge is non-zero" charge=total_charge
+    end
+
     return coord
 end
 
