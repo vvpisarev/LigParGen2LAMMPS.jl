@@ -49,32 +49,24 @@ function read_masses!(container, io::IO, natoms::Integer)
     return container
 end
 
-function read_pcoeff!(pair_coeff, types, io::IO, natoms::Integer)
+function read_pcoeff!(pair_coeff, io::IO, ntypes::Integer)
     readline(io)
 
-    ntypes = 0
-    for ia in 1:natoms
+    for ia in 1:ntypes
         ln = readline(io)
         if isempty(ln)
             error("Not all pair coeffs are given")
         end
         is, εs, σs = split(ln)
-        i = parse(Int16, is)
+        itype = parse(Int16, is)
         ε = parse(Float64, εs)
         σ = parse(Float64, σs)
-        type = findfirst(==((ε, σ)), pair_coeff)
-        if type !== nothing
-            types[ia] = type
-        else
-            ntypes += 1
-            push!(pair_coeff, (ε, σ))
-            types[ia] = ntypes
-        end
+        push!(pair_coeff, (ε, σ, itype))
     end
-    return types
+    return pair_coeff
 end
 
-function read_bcoeff!(bond_coeff, btypes, io::IO, nbonds::Integer)
+function read_bcoeff!(bond_coeff, btypes, io::IO, nbonds::Integer, compress_btypes::Bool)
     readline(io)
 
     ntypes = 0
@@ -87,7 +79,7 @@ function read_bcoeff!(bond_coeff, btypes, io::IO, nbonds::Integer)
         i = parse(Int16, is)
         k = parse(Float64, ks)
         r0 = parse(Float64, rs)
-        type = findfirst(==((k, r0)), bond_coeff)
+        type = compress_btypes ? findfirst(==((k, r0)), bond_coeff) : nothing
         if k == 0
             btypes[ib] = 0
         elseif type !== nothing
@@ -95,13 +87,13 @@ function read_bcoeff!(bond_coeff, btypes, io::IO, nbonds::Integer)
         else
             ntypes += 1
             push!(bond_coeff, (k, r0))
-            btypes[ib] = ntypes
+            btypes[ib] = i
         end
     end
     return btypes
 end
 
-function read_acoeff!(angle_coeff, atypes, io::IO, nangles::Integer)
+function read_acoeff!(angle_coeff, atypes, io::IO, nangles::Integer, compress_atypes::Bool)
     readline(io)
 
     ntypes = 0
@@ -114,7 +106,7 @@ function read_acoeff!(angle_coeff, atypes, io::IO, nangles::Integer)
         i = parse(Int16, is)
         k = parse(Float64, ks)
         θ0 = parse(Float64, θs)
-        type = findfirst(==((k, θ0)), angle_coeff)
+        type = compress_atypes ? findfirst(==((k, θ0)), angle_coeff) : nothing
         if k == 0
             atypes[ia] = 0
         elseif type !== nothing
@@ -122,13 +114,13 @@ function read_acoeff!(angle_coeff, atypes, io::IO, nangles::Integer)
         else
             ntypes += 1
             push!(angle_coeff, (k, θ0))
-            atypes[ia] = ntypes
+            atypes[ia] = i
         end
     end
     return atypes
 end
 
-function read_dcoeff!(dihed_coeff, dtypes, io::IO, ndihed::Integer)
+function read_dcoeff!(dihed_coeff, dtypes, io::IO, ndihed::Integer, compress_dtypes::Bool)
     readline(io)
 
     ntypes = 0
@@ -141,7 +133,7 @@ function read_dcoeff!(dihed_coeff, dtypes, io::IO, ndihed::Integer)
         i = parse(Int16, is)
         c1, c2, c3, c4 = parse.(Float64, (c1s, c2s, c3s, c4s))
 
-        type = findfirst(==((c1, c2, c3, c4)), dihed_coeff)
+        type = compress_dtypes ? findfirst(==((c1, c2, c3, c4)), dihed_coeff) : nothing
         if all(iszero, (c1, c2, c3, c4))
             dtypes[id] = 0
         elseif type !== nothing
@@ -149,13 +141,13 @@ function read_dcoeff!(dihed_coeff, dtypes, io::IO, ndihed::Integer)
         else
             ntypes += 1
             push!(dihed_coeff, (c1, c2, c3, c4))
-            dtypes[id] = ntypes
+            dtypes[id] = i
         end
     end
     return dtypes
 end
 
-function read_icoeff!(improper_coeff, itypes, io::IO, nimproper::Integer)
+function read_icoeff!(improper_coeff, itypes, io::IO, nimproper::Integer, compress_itypes::Bool)
     readline(io)
 
     ntypes = 0
@@ -170,7 +162,7 @@ function read_icoeff!(improper_coeff, itypes, io::IO, nimproper::Integer)
         d = parse(Int8, ds)
         n = parse(Int8, ns)
 
-        type = findfirst(==((k, d, n)), improper_coeff)
+        type = compress_itypes ? findfirst(==((k, d, n)), improper_coeff) : nothing
         if k == 0
             itypes[ii] = 0
         elseif type !== nothing
@@ -178,13 +170,13 @@ function read_icoeff!(improper_coeff, itypes, io::IO, nimproper::Integer)
         else
             ntypes += 1
             push!(improper_coeff, (k, d, n))
-            itypes[ii] = ntypes
+            itypes[ii] = i
         end
     end
     return itypes
 end
 
-function read_atoms!(coord, charge, io::IO, natoms::Integer)
+function read_atoms!(coord, charge, type, io::IO, natoms::Integer)
     readline(io)
 
     for _ in 1:natoms
@@ -193,18 +185,14 @@ function read_atoms!(coord, charge, io::IO, natoms::Integer)
             error("Missing atoms")
         end
         is, ms, ts, qs, xs, ys, zs = split(ln)
-        i, type = parse.(Int16, (is, ts))
+        i, t = parse.(Int16, (is, ts))
         q, x, y, z = parse.(Float64, (qs, xs, ys, zs))
         charge[i] = q
         coord[i] = (x, y, z)
+        type[i] = t
     end
 
-    total_charge = sum(charge)
-    if abs(total_charge) > natoms * eps(Float64)
-        @warn "Total charge is non-zero" charge=total_charge
-    end
-
-    return coord
+    return coord, charge
 end
 
 function read_bonds!(bonds, io::IO, nbonds::Integer, bond_map)
@@ -216,7 +204,7 @@ function read_bonds!(bonds, io::IO, nbonds::Integer, bond_map)
             error("Missing bonds")
         end
         is, ts, a1s, a2s = split(ln)
-        i, type, a1, a2 = parse.(Int16, (is, ts, a1s, a2s))
+        _, type, a1, a2 = parse.(Int16, (is, ts, a1s, a2s))
         type = bond_map[type]
         type > 0 && push!(bonds, (a1, a2) => type)
     end

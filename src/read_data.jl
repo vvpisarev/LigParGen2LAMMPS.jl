@@ -1,7 +1,3 @@
-export read_lpg_data
-
-include("parsers.jl")
-
 Base.@kwdef struct Molecule
     coords::Vector{NTuple{3,Float64}} = NTuple{3,Float64}[]
     types::Vector{Int16} = Int16[]
@@ -12,7 +8,7 @@ Base.@kwdef struct Molecule
     diheds::Vector{Pair{NTuple{4,Int16},Int16}} = Pair{NTuple{4,Int16},Int16}[] #dihedral is (i, j, k, l) => dtype
     improps::Vector{Pair{NTuple{4,Int16},Int16}} = Pair{NTuple{4,Int16},Int16}[] #improper is (i, j, k, l) => itype
 
-    pair_coeffs::Vector{NTuple{2,Float64}} = NTuple{2,Float64}[]
+    pair_coeffs::Vector{Tuple{Float64,Float64,Int16}} = Tuple{Float64,Float64,Int16}[]
 
     bond_coeffs::Vector{NTuple{2,Float64}} = NTuple{2,Float64}[]
     bond_map::Vector{Int16} = Int16[]
@@ -30,12 +26,30 @@ Base.@kwdef struct Molecule
 end
 
 """
-    read_lpg_data(f)
+    read_lpg_data(f[; keywords...])
 
-Read the datafile produced by LigParGen from `f`. `f` may 
-be an I/O stream or a file name.
+Read the datafile produced by LigParGen from `f`. `f` may be an I/O stream or a file name.
+
+# Keywords
+* `compress_types::Bool=true`: mark particles with the same LJ parameters as the same type
+* `compress_btypes::Bool=true`: mark bonds with the same parameters as the same type
+* `compress_atypes::Bool=true`: mark angles with the same parameters as the same type
+* `compress_dtypes::Bool=true`: mark dihedrals with the same parameters as the same type
+* `compress_itypes::Bool=true`: mark impropers with the same parameters as the same type
+* `net_charge=nothing`: if set to a number, the charges will be tweaked so that the total
+    charge equals to the specified value. If set to `nothing`, the charges will be tweaked
+    so that the net charge is the nearest integer value
 """
-function read_lpg_data(io::IO)
+function read_lpg_data(
+    io::IO,
+    ;
+    compress_types::Bool=true,
+    compress_btypes::Bool=true,
+    compress_atypes::Bool=true,
+    compress_dtypes::Bool=true,
+    compress_itypes::Bool=true,
+    net_charge::Union{Nothing,Real}=nothing,
+)
     comment = readline(io)
     molstruct = Molecule(comment = comment[1] == '#' ? comment : "#" * comment)
     natom, nbond, nangle, ndihedral, nimproper,
@@ -59,37 +73,37 @@ function read_lpg_data(io::IO)
 
     @assert startswith(readline(io), "Pair")
 
-    read_pcoeff!(molstruct.pair_coeffs, molstruct.types, io, ntypes)
+    read_pcoeff!(molstruct.pair_coeffs, io, ntypes)
 
     readline(io)
 
     @assert startswith(readline(io), "Bond")
 
-    read_bcoeff!(molstruct.bond_coeffs, molstruct.bond_map, io, nbtypes)
+    read_bcoeff!(molstruct.bond_coeffs, molstruct.bond_map, io, nbtypes, compress_btypes)
 
     readline(io)
 
     @assert startswith(readline(io), "Angle")
 
-    read_acoeff!(molstruct.angle_coeffs, molstruct.angle_map, io, natypes)
+    read_acoeff!(molstruct.angle_coeffs, molstruct.angle_map, io, natypes, compress_atypes)
 
     readline(io)
 
     @assert startswith(readline(io), "Dihedral")
 
-    read_dcoeff!(molstruct.dihed_coeffs, molstruct.dihed_map, io, ndtypes)
+    read_dcoeff!(molstruct.dihed_coeffs, molstruct.dihed_map, io, ndtypes, compress_dtypes)
 
     readline(io)
 
     @assert startswith(readline(io), "Improper")
 
-    read_icoeff!(molstruct.improper_coeffs, molstruct.improper_map, io, nitypes)
+    read_icoeff!(molstruct.improper_coeffs, molstruct.improper_map, io, nitypes, compress_itypes)
 
     readline(io)
 
     @assert startswith(readline(io), "Atoms")
 
-    read_atoms!(molstruct.coords, molstruct.charges, io, natom)
+    read_atoms!(molstruct.coords, molstruct.charges, molstruct.types, io, natom)
 
     readline(io)
 
@@ -115,7 +129,21 @@ function read_lpg_data(io::IO)
 
     read_impropers!(molstruct.improps, io, nimproper, molstruct.improper_map)
 
+    if net_charge === nothing
+        balance_charges!(molstruct, round(sum(molstruct.charges)); charge_diff_thresh=1.11e-3)
+    else
+        balance_charges!(molstruct, net_charge; charge_diff_thresh=1.11e-3)
+    end
+
+    if compress_types
+        compress_types!(molstruct)
+    end
+
     return molstruct
 end
 
-read_lpg_data(fname::AbstractString) = open(fname) do io read_lpg_data(io) end
+function read_lpg_data(fname::AbstractString; kw...)
+    open(fname) do io
+        read_lpg_data(io; kw...)
+    end
+end

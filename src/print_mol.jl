@@ -1,5 +1,3 @@
-export write_mol, write_ff, write_mol_and_ff
-
 """
     write_mol(f, mol::Molecule)
 
@@ -36,7 +34,7 @@ end
 Read the molecular topology from file named `ligpargenfile` and write it into `f`. `f` can
     be an I/O stream or a filename.
 """
-write_mol(f, mol::AbstractString) = write_mol(f, read_lpg_data(mol))
+write_mol(f, mol::AbstractString; kw...) = write_mol(f, read_lpg_data(mol, kw...))
 
 """
     write_ff(f, mol::Molecule)
@@ -55,9 +53,7 @@ function write_ff(io, mol::Molecule)
     pair_modify       mix geometric
     """)
 
-    for type in 1:length(mol.pair_coeffs)
-        itype = findlast(==(type), mol.types)
-        m = mol.masses[itype]
+    for (type, m) in pairs(mol.masses)
         join(io, ("mass          ", type, m, '\n'), ' ')
     end
 
@@ -109,7 +105,7 @@ end
 Read the molecular topology from file named `ligpargenfile` and write its forcefield
     into `f`. `f` can be an I/O stream or a filename.
 """
-write_ff(f, mol::AbstractString) = write_ff(f, read_lpg_data(mol))
+write_ff(f, mol::AbstractString; kw...) = write_ff(f, read_lpg_data(mol; kw...))
 
 """
     write_mol_and_ff(fmask::AbstractString, mol::Molecule)
@@ -131,9 +127,9 @@ end
 Read the molecular topology and forcefield parameters from `ligpargenfile` and write them
     into files "fmask.txt" and "fmask.ff", respectively.
 """
-write_mol_and_ff(fmask, mol::AbstractString) = write_mol_and_ff(fmask, read_lpg_data(mol))
+write_mol_and_ff(fmask, mol::AbstractString; kw...) = write_mol_and_ff(fmask, read_lpg_data(mol; kw...))
 
-function print_coords(io, coords)
+function print_coords(io, coords::Vector)
     println(io, "\nCoords\n")
     for i in 1:length(coords)
         x, y, z = coords[i]
@@ -141,28 +137,28 @@ function print_coords(io, coords)
     end
 end
 
-function print_types(io, types)
+function print_types(io, types::Vector)
     println(io, "\nTypes\n")
     for i in 1:length(types)
         join(io, (i, types[i], '\n'), ' ')
     end
 end
 
-function print_charges(io, charges)
+function print_charges(io, charges::Vector)
     println(io, "\nCharges\n")
     for i in 1:length(charges)
-        join(io, (i, charges[i], '\n'), ' ')
+        join(io, (i, round(charges[i]; digits=14), '\n'), ' ')
     end
 end
 
-function print_masses(io, masses)
+function print_masses(io, masses::Vector)
     println(io, "\nMasses\n")
     for i in 1:length(masses)
         join(io, (i, masses[i], '\n'), ' ')
     end
 end
 
-function print_bonds(io, bonds)
+function print_bonds(io, bonds::Vector)
     println(io, "\nBonds\n")
     for i in 1:length(bonds)
         (a1, a2), type = bonds[i]
@@ -170,7 +166,7 @@ function print_bonds(io, bonds)
     end
 end
 
-function print_angles(io, angles)
+function print_angles(io, angles::Vector)
     println(io, "\nAngles\n")
     for i in 1:length(angles)
         (a1, a2, a3), type = angles[i]
@@ -178,7 +174,7 @@ function print_angles(io, angles)
     end
 end
 
-function print_dihedrals(io, dihed)
+function print_dihedrals(io, dihed::Vector)
     println(io, "\nDihedrals\n")
     for i in 1:length(dihed)
         (a1, a2, a3, a4), type = dihed[i]
@@ -186,7 +182,7 @@ function print_dihedrals(io, dihed)
     end
 end
 
-function print_impropers(io, impropers)
+function print_impropers(io, impropers::Vector)
     println(io, "\nImpropers\n")
     for i in 1:length(impropers)
         (a1, a2, a3, a4), type = impropers[i]
