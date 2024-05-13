@@ -13,7 +13,7 @@ function write_mol(io, mol::Molecule)
 
     print_coords(io, mol.coords)
     print_types(io, mol.types)
-    print_masses(io, mol.masses)
+    print_masses(io, mol.masses, mol.types)
     print_charges(io, mol.charges)
 
     !isempty(mol.bonds) && print_bonds(io, mol.bonds)
@@ -53,8 +53,8 @@ function write_ff(io, mol::Molecule)
     pair_modify       mix geometric
     """)
 
-    for (type, m) in pairs(mol.masses)
-        join(io, ("mass          ", type, m, '\n'), ' ')
+    for (id, m) in pairs(mol.masses)
+        join(io, ("mass          ", id, m, '\n'), ' ')
     end
 
     !isempty(mol.pair_coeffs) && println(io)
@@ -151,10 +151,10 @@ function print_charges(io, charges::Vector)
     end
 end
 
-function print_masses(io, masses::Vector)
+function print_masses(io, masses::Vector, types::Vector)
     println(io, "\nMasses\n")
-    for i in 1:length(masses)
-        join(io, (i, masses[i], '\n'), ' ')
+    for (i, t) in pairs(types)
+        join(io, (i, masses[t], '\n'), ' ')
     end
 end
 
