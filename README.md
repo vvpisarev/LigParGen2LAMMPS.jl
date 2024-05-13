@@ -9,10 +9,39 @@ same mass, $\varepsilon$ and $\sigma$ parameters are added as atoms of the same 
 parameters are added as the same bond type etc. Additionally, bonds, angles, dihedrals 
 and impropers with zero energy parameters are excluded from the resulting molecule file.
 
-## Usage:
+## Installation
+
+The package is registered in a custom registry. To use another registry alongside the 
+Julia General registry and install the package, enter the following commands:
+```
+julia> using Pkg
+
+julia> pkg"registry add https://gitlab.com/pisarevvv/samma-registry.git"
+
+julia> pkg"add LigParGen2LAMMPS"
+
+julia> using LigParGen2LAMMPS
+```
+
+## Usage
 
 In the below examples, it is assumed that `ligpargenfile` is a LAMMPS data file generated 
 by LigParGen.
+
+    read_lpg_data(ligpargenfile[; keywords...])
+
+Read the datafile produced by LigParGen from `ligpargenfile`. `ligpargenfile` may be an 
+    I/O stream or a file name.
+
+# Keywords
+* `compress_types::Bool=true`: mark particles with the same LJ parameters as the same type
+* `compress_btypes::Bool=true`: mark bonds with the same parameters as the same type
+* `compress_atypes::Bool=true`: mark angles with the same parameters as the same type
+* `compress_dtypes::Bool=true`: mark dihedrals with the same parameters as the same type
+* `compress_itypes::Bool=true`: mark impropers with the same parameters as the same type
+* `net_charge=nothing`: if set to a number, the charges will be tweaked so that the total
+    charge equals to the specified value. If set to `nothing`, the charges will be tweaked
+    so that the net charge is the nearest integer value
 
     write_mol(f, ligpargenfile::AbstractString)
 
