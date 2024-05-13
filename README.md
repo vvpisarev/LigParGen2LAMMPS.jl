@@ -16,7 +16,7 @@ Julia General registry and install the package, enter the following commands:
 ```
 julia> using Pkg
 
-julia> pkg"registry add "
+julia> pkg"registry add https://gitlab.com/pisarevvv/samma-registry.git"
 
 julia> pkg"add LigParGen2LAMMPS"
 
@@ -28,9 +28,10 @@ julia> using LigParGen2LAMMPS
 In the below examples, it is assumed that `ligpargenfile` is a LAMMPS data file generated 
 by LigParGen.
 
-    read_lpg_data(f[; keywords...])
+    read_lpg_data(ligpargenfile[; keywords...])
 
-Read the datafile produced by LigParGen from `f`. `f` may be an I/O stream or a file name.
+Read the datafile produced by LigParGen from `ligpargenfile`. `ligpargenfile` may be an 
+    I/O stream or a file name.
 
 # Keywords
 * `compress_types::Bool=true`: mark particles with the same LJ parameters as the same type
