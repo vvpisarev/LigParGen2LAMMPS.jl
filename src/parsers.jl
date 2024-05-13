@@ -87,7 +87,7 @@ function read_bcoeff!(bond_coeff, btypes, io::IO, nbonds::Integer, compress_btyp
         else
             ntypes += 1
             push!(bond_coeff, (k, r0))
-            btypes[ib] = i
+            btypes[ib] = ntypes
         end
     end
     return btypes
@@ -114,7 +114,7 @@ function read_acoeff!(angle_coeff, atypes, io::IO, nangles::Integer, compress_at
         else
             ntypes += 1
             push!(angle_coeff, (k, θ0))
-            atypes[ia] = i
+            atypes[ia] = ntypes
         end
     end
     return atypes
@@ -141,7 +141,7 @@ function read_dcoeff!(dihed_coeff, dtypes, io::IO, ndihed::Integer, compress_dty
         else
             ntypes += 1
             push!(dihed_coeff, (c1, c2, c3, c4))
-            dtypes[id] = i
+            dtypes[id] = ntypes
         end
     end
     return dtypes
@@ -170,7 +170,7 @@ function read_icoeff!(improper_coeff, itypes, io::IO, nimproper::Integer, compre
         else
             ntypes += 1
             push!(improper_coeff, (k, d, n))
-            itypes[ii] = i
+            itypes[ii] = ntypes
         end
     end
     return itypes
