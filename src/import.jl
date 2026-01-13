@@ -1,6 +1,7 @@
 Base.@kwdef struct Molecule
     coords::Vector{NTuple{3,Float64}} = NTuple{3,Float64}[]
     types::Vector{Int16} = Int16[]
+    typenames::Vector{Symbol} = Symbol[]
     charges::Vector{Float64} = Float64[]
     masses::Vector{Float64} = Float64[]
     bonds::Vector{Pair{NTuple{2,Int16},Int16}} = Pair{NTuple{2,Int16},Int16}[] #bond is (i, j) => btype
@@ -31,7 +32,7 @@ end
 Read the datafile produced by LigParGen from `f`. `f` may be an I/O stream or a file name.
 
 # Keywords
-* `compress_types::Bool=true`: mark particles with the same LJ parameters as the same type
+* `compress_types::Bool=false`: mark particles with the same LJ parameters as the same type
 * `compress_btypes::Bool=true`: mark bonds with the same parameters as the same type
 * `compress_atypes::Bool=true`: mark angles with the same parameters as the same type
 * `compress_dtypes::Bool=true`: mark dihedrals with the same parameters as the same type
@@ -43,7 +44,7 @@ Read the datafile produced by LigParGen from `f`. `f` may be an I/O stream or a 
 function read_lpg_data(
     io::IO,
     ;
-    compress_types::Bool=true,
+    compress_types::Bool=false,
     compress_btypes::Bool=true,
     compress_atypes::Bool=true,
     compress_dtypes::Bool=true,
@@ -57,6 +58,7 @@ function read_lpg_data(
 
     resize!(molstruct.coords, natom)
     resize!(molstruct.types, natom)
+    resize!(molstruct.typenames, natom)
     resize!(molstruct.masses, natom)
     resize!(molstruct.charges, natom)
 
@@ -134,6 +136,8 @@ function read_lpg_data(
     else
         balance_charges!(molstruct, net_charge; charge_diff_thresh=1.11e-3)
     end
+
+    fill_typenames!(molstruct)
 
     if compress_types
         compress_types!(molstruct)
