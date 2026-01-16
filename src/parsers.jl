@@ -1,3 +1,18 @@
+const elems_by_mass = Dict(
+    1 => :H,
+    4 => :He,
+    7 => :Li,
+    9 => :Be,
+    11 => :B,
+    12 => :C,
+    14 => :N,
+    16 => :O,
+    19 => :F,
+    32 => :S,
+    35 => :Cl,
+    36 => :Cl,
+)
+
 function parse_header(io)
     natom = nbond = nangle = ndihedral = nimproper = 0
     ntypes = nbtypes = natypes = ndtypes = nitypes = 0
@@ -33,7 +48,8 @@ function parse_header(io)
     ntypes, nbtypes, natypes, ndtypes, nitypes
 end
 
-function read_masses!(container, io::IO, natoms::Integer)
+function read_masses!(mol::Molecule, io::IO, natoms::Integer)
+    (; masses, typenames) = mol
     readline(io)
 
     for _ in 1:natoms
@@ -44,9 +60,10 @@ function read_masses!(container, io::IO, natoms::Integer)
         is, ms = split(ln)
         i = parse(Int16, is)
         m = parse(Float64, ms)
-        container[i] = m
+        masses[i] = m
+        typenames[i] = get(elems_by_mass, round(Int, m), :X)
     end
-    return container
+    return mol
 end
 
 function read_pcoeff!(pair_coeff, io::IO, ntypes::Integer)
@@ -66,7 +83,7 @@ function read_pcoeff!(pair_coeff, io::IO, ntypes::Integer)
     return pair_coeff
 end
 
-function read_bcoeff!(bond_coeff, btypes, io::IO, nbonds::Integer, compress_btypes::Bool)
+function read_bcoeff!(bond_coeff, btypes, io::IO, nbonds::Integer, compress_btypes::Bool=false)
     readline(io)
 
     ntypes = 0
@@ -93,7 +110,7 @@ function read_bcoeff!(bond_coeff, btypes, io::IO, nbonds::Integer, compress_btyp
     return btypes
 end
 
-function read_acoeff!(angle_coeff, atypes, io::IO, nangles::Integer, compress_atypes::Bool)
+function read_acoeff!(angle_coeff, atypes, io::IO, nangles::Integer, compress_atypes::Bool=false)
     readline(io)
 
     ntypes = 0
@@ -120,7 +137,7 @@ function read_acoeff!(angle_coeff, atypes, io::IO, nangles::Integer, compress_at
     return atypes
 end
 
-function read_dcoeff!(dihed_coeff, dtypes, io::IO, ndihed::Integer, compress_dtypes::Bool)
+function read_dcoeff!(dihed_coeff, dtypes, io::IO, ndihed::Integer, compress_dtypes::Bool=false)
     readline(io)
 
     ntypes = 0
@@ -147,7 +164,7 @@ function read_dcoeff!(dihed_coeff, dtypes, io::IO, ndihed::Integer, compress_dty
     return dtypes
 end
 
-function read_icoeff!(improper_coeff, itypes, io::IO, nimproper::Integer, compress_itypes::Bool)
+function read_icoeff!(improper_coeff, itypes, io::IO, nimproper::Integer, compress_itypes::Bool=false)
     readline(io)
 
     ntypes = 0

@@ -37,11 +37,19 @@ Read the molecular topology from file named `ligpargenfile` and write it into `f
 write_mol(f, mol::AbstractString; kw...) = write_mol(f, read_lpg_data(mol, kw...))
 
 """
-    write_ff(f, mol::Molecule)
+    write_ff(f, mol::Molecule; ff=nothing, charge=nothing)
 
 Write the forcefield parameters of `mol` into `f`. `f` can be an I/O stream or a filename.
+    `ff` can be specified as `:opls_aa` or `:opls_aa_2020`, `charge` can be specified as
+    `:opls_aa`.
 """
-function write_ff(io, mol::Molecule)
+function write_ff(f, mol::Molecule; ff=nothing, charge=nothing)
+    molcopy = switch_ff(mol, ff)
+    switch_charge!(molcopy, charge)
+    __write_ff(f, molcopy)
+end
+
+function __write_ff(io, mol::Molecule)
     println(io,
     """
     pair_style        lj/cut/coul/long 12.0
@@ -91,9 +99,13 @@ function write_ff(io, mol::Molecule)
         k, d, n = mol.improper_coeffs[itype]
         join(io, ("improper_coeff    ", itype, k, d, n, '\n'), ' ')
     end
+
+    for (k, q) in pairs(mol.charges)
+        join(io, ("set    type ", k, " charge ", q, '\n'))
+    end
 end
 
-function write_ff(fname::AbstractString, mol::Molecule)
+function __write_ff(fname::AbstractString, mol::Molecule)
     open(fname, "w") do io
         write_ff(io, mol)
     end

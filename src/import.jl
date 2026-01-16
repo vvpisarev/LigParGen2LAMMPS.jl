@@ -32,11 +32,6 @@ end
 Read the datafile produced by LigParGen from `f`. `f` may be an I/O stream or a file name.
 
 # Keywords
-* `compress_types::Bool=false`: mark particles with the same LJ parameters as the same type
-* `compress_btypes::Bool=false`: mark bonds with the same parameters as the same type
-* `compress_atypes::Bool=false`: mark angles with the same parameters as the same type
-* `compress_dtypes::Bool=false`: mark dihedrals with the same parameters as the same type
-* `compress_itypes::Bool=false`: mark impropers with the same parameters as the same type
 * `net_charge=nothing`: if set to a number, the charges will be tweaked so that the total
     charge equals to the specified value. If set to `nothing`, the charges will be tweaked
     so that the net charge is the nearest integer value
@@ -44,11 +39,6 @@ Read the datafile produced by LigParGen from `f`. `f` may be an I/O stream or a 
 function read_lpg_data(
     io::IO,
     ;
-    compress_types::Bool=false,
-    compress_btypes::Bool=false,
-    compress_atypes::Bool=false,
-    compress_dtypes::Bool=false,
-    compress_itypes::Bool=false,
     net_charge::Union{Nothing,Real}=nothing,
 )
     comment = readline(io)
@@ -69,7 +59,7 @@ function read_lpg_data(
 
     @assert startswith(readline(io), "Masses")
 
-    read_masses!(molstruct.masses, io, natom)
+    read_masses!(molstruct, io, natom)
 
     readline(io)
 
@@ -81,25 +71,24 @@ function read_lpg_data(
 
     @assert startswith(readline(io), "Bond")
 
-    read_bcoeff!(molstruct.bond_coeffs, molstruct.bond_map, io, nbtypes, compress_btypes)
+    read_bcoeff!(molstruct.bond_coeffs, molstruct.bond_map, io, nbtypes)
 
     readline(io)
 
     @assert startswith(readline(io), "Angle")
 
-    read_acoeff!(molstruct.angle_coeffs, molstruct.angle_map, io, natypes, compress_atypes)
-
+    read_acoeff!(molstruct.angle_coeffs, molstruct.angle_map, io, natypes)
     readline(io)
 
     @assert startswith(readline(io), "Dihedral")
 
-    read_dcoeff!(molstruct.dihed_coeffs, molstruct.dihed_map, io, ndtypes, compress_dtypes)
+    read_dcoeff!(molstruct.dihed_coeffs, molstruct.dihed_map, io, ndtypes)
 
     readline(io)
 
     @assert startswith(readline(io), "Improper")
 
-    read_icoeff!(molstruct.improper_coeffs, molstruct.improper_map, io, nitypes, compress_itypes)
+    read_icoeff!(molstruct.improper_coeffs, molstruct.improper_map, io, nitypes)
 
     readline(io)
 
@@ -137,6 +126,8 @@ function read_lpg_data(
         balance_charges!(molstruct, net_charge; charge_diff_thresh=1.11e-3)
     end
 
+    refine_typenames!(molstruct)
+
     return molstruct
 end
 
@@ -144,4 +135,46 @@ function read_lpg_data(fname::AbstractString; kw...)
     open(fname) do io
         read_lpg_data(io; kw...)
     end
+end
+
+function refine_typenames!(mol::Molecule)
+    typenames = mol.typenames
+    ct_types = (:CT1, :CT2, :CT3, :CT4)
+
+    num_h_neighs = zero(mol.types)
+    num_neighs = zero(mol.types)
+    for bond in mol.bonds
+        (i, k), = bond
+        num_neighs[i] += true
+        num_neighs[k] += true
+        if typenames[i] == :H
+            num_h_neighs[k] += true
+        end
+        if typenames[k] == :H
+            num_h_neighs[i] += true
+        end
+    end
+    for (k, nn) in enumerate(num_neighs)
+        if typenames[k] == :C && nn == 4
+            typenames[k] = :CT
+        end
+    end
+    for (k, nh) in enumerate(num_h_neighs)
+        if typenames[k] == :CT
+            if nh > 0
+                typenames[k] = ct_types[nh]
+            else
+                typenames[k] = :CT0
+            end
+        end
+    end
+    for bond in mol.bonds
+        (i, k), = bond
+        if typenames[i] == :H && typenames[k] in ct_types
+            typenames[i] = :HC
+        elseif typenames[k] == :H && typenames[i] in ct_types
+            typenames[k] = :HC
+        end
+    end
+    return mol
 end
