@@ -33,10 +33,10 @@ Read the datafile produced by LigParGen from `f`. `f` may be an I/O stream or a 
 
 # Keywords
 * `compress_types::Bool=false`: mark particles with the same LJ parameters as the same type
-* `compress_btypes::Bool=true`: mark bonds with the same parameters as the same type
-* `compress_atypes::Bool=true`: mark angles with the same parameters as the same type
-* `compress_dtypes::Bool=true`: mark dihedrals with the same parameters as the same type
-* `compress_itypes::Bool=true`: mark impropers with the same parameters as the same type
+* `compress_btypes::Bool=false`: mark bonds with the same parameters as the same type
+* `compress_atypes::Bool=false`: mark angles with the same parameters as the same type
+* `compress_dtypes::Bool=false`: mark dihedrals with the same parameters as the same type
+* `compress_itypes::Bool=false`: mark impropers with the same parameters as the same type
 * `net_charge=nothing`: if set to a number, the charges will be tweaked so that the total
     charge equals to the specified value. If set to `nothing`, the charges will be tweaked
     so that the net charge is the nearest integer value
@@ -45,10 +45,10 @@ function read_lpg_data(
     io::IO,
     ;
     compress_types::Bool=false,
-    compress_btypes::Bool=true,
-    compress_atypes::Bool=true,
-    compress_dtypes::Bool=true,
-    compress_itypes::Bool=true,
+    compress_btypes::Bool=false,
+    compress_atypes::Bool=false,
+    compress_dtypes::Bool=false,
+    compress_itypes::Bool=false,
     net_charge::Union{Nothing,Real}=nothing,
 )
     comment = readline(io)
@@ -135,12 +135,6 @@ function read_lpg_data(
         balance_charges!(molstruct, round(sum(molstruct.charges)); charge_diff_thresh=1.11e-3)
     else
         balance_charges!(molstruct, net_charge; charge_diff_thresh=1.11e-3)
-    end
-
-    fill_typenames!(molstruct)
-
-    if compress_types
-        compress_types!(molstruct)
     end
 
     return molstruct

@@ -76,11 +76,63 @@ function switch_ff(mol_ref::Molecule, ff_type::Symbol)
     end
 
     mol = deepcopy(mol_ref)
-    
+
+    fill_typenames!(mol)
+
     if ff_type == :opls_aa
         switch_ff_to_oplsaa!(mol)
     elseif ff_type == :opls_aa_2020
         switch_ff_to_opls2020!(mol)
+    end
+    return mol
+end
+
+function switch_ff_to_oplsaa!(mol::Molecule)
+    ct_types = (:CT0, :CT1, :CT2, :CT3, :CT4)
+    for k in eachindex(mol.pair_coeffs)
+        typeind = mol.pair_coeffs[k][3]
+        if mol.typenames[typeind] == :HC
+            mol.pair_coeffs[k] = (0.030, 2.5, typeind)
+        elseif mol.typenames[typeind] in ct_types
+            mol.pair_coeffs[k] = (0.066, 3.5, typeind)
+        end
+    end
+    for k in eachindex(mol.dihedral_coeffs)
+        d = mol.diheds[k]
+        if all(ind -> mol.typenames[ind] in ct_types, d[1])
+            dtype = mol.dihed_map[k]
+            dcoeff = mol.dihedral_coeffs[dtype]
+            mol.dihedral_coeffs[dtype] = ((1.3, -0.05, 0.2, 0.0), dcoeff[2])
+        end
+    end
+    return mol
+end
+
+function switch_ff_to_opls2020!(mol::Molecule)
+    ct_types = (:CT0, :CT1, :CT2, :CT3, :CT4)
+    for k in eachindex(mol.pair_coeffs)
+        typeind = mol.pair_coeffs[k][3]
+        if mol.typenames[typeind] == :HC
+            mol.pair_coeffs[k] = (0.026, 2.48, typeind)
+        elseif mol.typenames[typeind] == :CT4
+            mol.pair_coeffs[k] = (0.060, 3.57, typeind)
+        elseif mol.typenames[typeind] == :CT3
+            mol.pair_coeffs[k] = (0.066, 3.55, typeind)
+        elseif mol.typenames[typeind] == :CT2
+            mol.pair_coeffs[k] = (0.066, 3.51, typeind)
+        elseif mol.typenames[typeind] == :CT1
+            mol.pair_coeffs[k] = (0.066, 3.5, typeind)
+        elseif mol.typenames[typeind] == :CT0
+            mol.pair_coeffs[k] = (0.066, 3.5, typeind)
+        end
+    end
+    for k in eachindex(mol.dihedral_coeffs)
+        d = mol.diheds[k]
+        if all(ind -> mol.typenames[ind] in ct_types, d[1])
+            dtype = mol.dihed_map[k]
+            dcoeff = mol.dihedral_coeffs[dtype]
+            mol.dihedral_coeffs[dtype] = ((1.3, -0.05, 0.2, 0.0), dcoeff[2])
+        end
     end
     return mol
 end
