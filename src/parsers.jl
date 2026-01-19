@@ -1,18 +1,3 @@
-const elems_by_mass = Dict(
-    1 => :H,
-    4 => :He,
-    7 => :Li,
-    9 => :Be,
-    11 => :B,
-    12 => :C,
-    14 => :N,
-    16 => :O,
-    19 => :F,
-    32 => :S,
-    35 => :Cl,
-    36 => :Cl,
-)
-
 function parse_header(io)
     natom = nbond = nangle = ndihedral = nimproper = 0
     ntypes = nbtypes = natypes = ndtypes = nitypes = 0
@@ -48,8 +33,8 @@ function parse_header(io)
     ntypes, nbtypes, natypes, ndtypes, nitypes
 end
 
-function read_masses!(mol::Molecule, io::IO, natoms::Integer)
-    (; masses, typenames) = mol
+function read_masses!(mol::LigParGenMolecule, io::IO, natoms::Integer)
+    (; masses) = mol
     readline(io)
 
     for _ in 1:natoms
@@ -61,7 +46,6 @@ function read_masses!(mol::Molecule, io::IO, natoms::Integer)
         i = parse(Int16, is)
         m = parse(Float64, ms)
         masses[i] = m
-        typenames[i] = get(elems_by_mass, round(Int, m), :X)
     end
     return mol
 end
@@ -83,10 +67,9 @@ function read_pcoeff!(pair_coeff, io::IO, ntypes::Integer)
     return pair_coeff
 end
 
-function read_bcoeff!(bond_coeff, btypes, io::IO, nbonds::Integer, compress_btypes::Bool=false)
+function read_bcoeff!(bond_coeff, io::IO, nbonds::Integer)
     readline(io)
 
-    ntypes = 0
     for ib in 1:nbonds
         ln = readline(io)
         if isempty(ln)
@@ -96,24 +79,14 @@ function read_bcoeff!(bond_coeff, btypes, io::IO, nbonds::Integer, compress_btyp
         i = parse(Int16, is)
         k = parse(Float64, ks)
         r0 = parse(Float64, rs)
-        type = compress_btypes ? findfirst(==((k, r0)), bond_coeff) : nothing
-        if k == 0
-            btypes[ib] = 0
-        elseif type !== nothing
-            btypes[ib] = type
-        else
-            ntypes += 1
-            push!(bond_coeff, (k, r0))
-            btypes[ib] = ntypes
-        end
+        push!(bond_coeff, (k, r0))
     end
-    return btypes
+    return bond_coeff
 end
 
-function read_acoeff!(angle_coeff, atypes, io::IO, nangles::Integer, compress_atypes::Bool=false)
+function read_acoeff!(angle_coeff, io::IO, nangles::Integer)
     readline(io)
 
-    ntypes = 0
     for ia in 1:nangles
         ln = readline(io)
         if isempty(ln)
@@ -123,24 +96,14 @@ function read_acoeff!(angle_coeff, atypes, io::IO, nangles::Integer, compress_at
         i = parse(Int16, is)
         k = parse(Float64, ks)
         θ0 = parse(Float64, θs)
-        type = compress_atypes ? findfirst(==((k, θ0)), angle_coeff) : nothing
-        if k == 0
-            atypes[ia] = 0
-        elseif type !== nothing
-            atypes[ia] = type
-        else
-            ntypes += 1
-            push!(angle_coeff, (k, θ0))
-            atypes[ia] = ntypes
-        end
+        push!(angle_coeff, (k, θ0))
     end
-    return atypes
+    return angle_coeff
 end
 
-function read_dcoeff!(dihed_coeff, dtypes, io::IO, ndihed::Integer, compress_dtypes::Bool=false)
+function read_dcoeff!(dihed_coeff, io::IO, ndihed::Integer)
     readline(io)
 
-    ntypes = 0
     for id in 1:ndihed
         ln = readline(io)
         if isempty(ln)
@@ -150,24 +113,14 @@ function read_dcoeff!(dihed_coeff, dtypes, io::IO, ndihed::Integer, compress_dty
         i = parse(Int16, is)
         c1, c2, c3, c4 = parse.(Float64, (c1s, c2s, c3s, c4s))
 
-        type = compress_dtypes ? findfirst(==((c1, c2, c3, c4)), dihed_coeff) : nothing
-        if all(iszero, (c1, c2, c3, c4))
-            dtypes[id] = 0
-        elseif type !== nothing
-            dtypes[id] = type
-        else
-            ntypes += 1
-            push!(dihed_coeff, (c1, c2, c3, c4))
-            dtypes[id] = ntypes
-        end
+        push!(dihed_coeff, (c1, c2, c3, c4))
     end
-    return dtypes
+    return dihed_coeff
 end
 
-function read_icoeff!(improper_coeff, itypes, io::IO, nimproper::Integer, compress_itypes::Bool=false)
+function read_icoeff!(improper_coeff, io::IO, nimproper::Integer)
     readline(io)
 
-    ntypes = 0
     for ii in 1:nimproper
         ln = readline(io)
         if isempty(ln)
@@ -179,18 +132,9 @@ function read_icoeff!(improper_coeff, itypes, io::IO, nimproper::Integer, compre
         d = parse(Int8, ds)
         n = parse(Int8, ns)
 
-        type = compress_itypes ? findfirst(==((k, d, n)), improper_coeff) : nothing
-        if k == 0
-            itypes[ii] = 0
-        elseif type !== nothing
-            itypes[ii] = type
-        else
-            ntypes += 1
-            push!(improper_coeff, (k, d, n))
-            itypes[ii] = ntypes
-        end
+        push!(improper_coeff, (k, d, n))
     end
-    return itypes
+    return improper_coeff
 end
 
 function read_atoms!(coord, charge, type, io::IO, natoms::Integer)
@@ -212,7 +156,7 @@ function read_atoms!(coord, charge, type, io::IO, natoms::Integer)
     return coord, charge
 end
 
-function read_bonds!(bonds, io::IO, nbonds::Integer, bond_map)
+function read_bonds!(bonds, io::IO, nbonds::Integer)
     readline(io)
 
     for _ in 1:nbonds
@@ -222,13 +166,12 @@ function read_bonds!(bonds, io::IO, nbonds::Integer, bond_map)
         end
         is, ts, a1s, a2s = split(ln)
         _, type, a1, a2 = parse.(Int16, (is, ts, a1s, a2s))
-        type = bond_map[type]
-        type > 0 && push!(bonds, (a1, a2) => type)
+        push!(bonds, (a1, a2))
     end
     return bonds
 end
 
-function read_angles!(angles, io::IO, nangles::Integer, angle_map)
+function read_angles!(angles, io::IO, nangles::Integer)
     readline(io)
 
     for _ in 1:nangles
@@ -238,13 +181,12 @@ function read_angles!(angles, io::IO, nangles::Integer, angle_map)
         end
         is, ts, a1s, a2s, a3s = split(ln)
         i, type, a1, a2, a3 = parse.(Int16, (is, ts, a1s, a2s, a3s))
-        type = angle_map[type]
-        type > 0 && push!(angles, (a1, a2, a3) => type)
+        push!(angles, (a1, a2, a3))
     end
     return angles
 end
 
-function read_dihed!(dihed, io::IO, ndihed::Integer, dihed_map)
+function read_dihed!(dihed, io::IO, ndihed::Integer)
     readline(io)
 
     for _ in 1:ndihed
@@ -254,13 +196,12 @@ function read_dihed!(dihed, io::IO, ndihed::Integer, dihed_map)
         end
         is, ts, a1s, a2s, a3s, a4s = split(ln)
         i, type, a1, a2, a3, a4 = parse.(Int16, (is, ts, a1s, a2s, a3s, a4s))
-        type = dihed_map[type]
-        type > 0 && push!(dihed, (a1, a2, a3, a4) => type)
+        push!(dihed, (a1, a2, a3, a4))
     end
     return dihed
 end
 
-function read_impropers!(improper, io::IO, nimproper::Integer, improper_map)
+function read_impropers!(improper, io::IO, nimproper::Integer)
     readline(io)
 
     for _ in 1:nimproper
@@ -270,8 +211,7 @@ function read_impropers!(improper, io::IO, nimproper::Integer, improper_map)
         end
         is, ts, a1s, a2s, a3s, a4s = split(ln)
         i, type, a1, a2, a3, a4 = parse.(Int16, (is, ts, a1s, a2s, a3s, a4s))
-        type = improper_map[type]
-        type > 0 && push!(improper, (a1, a2, a3, a4) => type)
+        push!(improper, (a1, a2, a3, a4))
     end
     return improper
 end

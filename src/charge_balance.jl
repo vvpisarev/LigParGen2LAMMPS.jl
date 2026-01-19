@@ -5,7 +5,9 @@ const COMBINATIONS = let
     sort!(ab_pairs; by=((a, b),)->max(abs(a), abs(b)))
 end
 
-function balance_charges!(mol::Molecule, desired_charge, dq=1e-4; charge_diff_thresh)
+function balance_charges!(
+    mol::LigParGenMolecule, desired_charge, dq=1e-4; charge_diff_thresh
+)
     charge = mol.charges
     pcoeff = mol.pair_coeffs
     type = mol.types

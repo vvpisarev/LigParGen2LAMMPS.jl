@@ -37,7 +37,7 @@ Read the molecular topology from file named `ligpargenfile` and write it into `f
 write_mol(f, mol::AbstractString; kw...) = write_mol(f, read_lpg_data(mol, kw...))
 
 """
-    write_ff(f, mol::Molecule; ff=nothing, charge=nothing)
+    write_ff(f, mol::Molecule; include_charge=true, ff=nothing, charge=nothing)
 
 Write the forcefield parameters of `mol` into `f`. `f` can be an I/O stream or a filename.
     `ff` can be specified as `:opls_aa` or `:opls_aa_2020`, `charge` can be specified as
