@@ -89,14 +89,14 @@ function __write_ff(io, mol::LigParGenMolecule)
 
     !isempty(mol.pair_coeffs) && println(io)
 
-    for type in 1:length(mol.pair_coeffs)
+    for type in keys(mol.pair_coeffs)
         ε, σ = mol.pair_coeffs[type]
         join(io, ("pair_coeff    ", type, type, ε, σ, '\n'), ' ')
     end
 
     !isempty(mol.bond_coeffs) && println(io)
 
-    for btype in 1:length(mol.bond_coeffs)
+    for btype in keys(mol.bond_coeffs)
         k, r0 = mol.bond_coeffs[btype]
         join(io, ("bond_coeff    ", btype, k, r0, '\n'), ' ')
     end
@@ -168,12 +168,12 @@ function export_mol_and_ff(
 end
 
 """
-    write_mol_and_ff(fmask::AbstractString, ligpargenfile::AbstractString)
+    export_mol_and_ff(fmask::AbstractString, ligpargenfile::AbstractString)
 
 Read the molecular topology and forcefield parameters from `ligpargenfile` and write them
     into files "fmask.txt" and "fmask.ff", respectively.
 """
-write_mol_and_ff(fmask, mol::AbstractString; kw...) = write_mol_and_ff(fmask, read_lpg_data(mol; kw...))
+export_mol_and_ff(fmask, mol::AbstractString; kw...) = export_mol_and_ff(fmask, read_lpg_data(mol; kw...))
 
 function print_coords(io, coords::Vector)
     println(io, "\nCoords\n")
@@ -237,5 +237,123 @@ function print_impropers(io, impropers::Vector)
         (a1, a2, a3, a4) = impropers[i]
         type = i
         join(io, (i, type, a1, a2, a3, a4, '\n'), ' ')
+    end
+end
+
+"""
+    export_data(f, mol::Molecule[; ff, charge_model])
+
+Write the molecular topology and forcefield parameters of `mol` as LAMMPS data file.
+"""
+function export_data(io::IO, mol::Molecule; ff=:opls_aa_ligpargen, charge_model=:cm1a)
+    alt_base = deepcopy(mol.base)
+    remove_null_dihedrals!(alt_base)
+    switch_ff!(alt_base, mol.typenames, ff)
+    switch_charge!(alt_base, mol.typenames, charge_model)
+    __write_data(io, alt_base)
+    return nothing
+end
+
+function export_data(path::AbstractString, mol::Molecule; kw...)
+    open(path, "w") do io
+        export_data(io, mol; kw...)
+    end
+end
+
+function __write_data(io::IO, mol::LigParGenMolecule)
+    println(io, mol.comment)
+    println(io)
+    println(io, length(mol.coords), " atoms")
+    println(io, length(mol.bonds), " bonds")
+    println(io, length(mol.angles), " angles")
+    isempty(mol.diheds) || println(io, length(mol.diheds), " dihedrals")
+    isempty(mol.improps) || println(io, length(mol.improps), " impropers")
+
+    println(io)
+
+    println(io, length(mol.pair_coeffs), " atom types")
+    println(io, length(mol.bond_coeffs), " bond types")
+    println(io, length(mol.angle_coeffs), " angle types")
+    isempty(mol.dihed_coeffs) || println(io, length(mol.diheds), " dihedral types")
+    isempty(mol.improper_coeffs) || println(io, length(mol.improps), " improper types")
+
+    println(io)
+
+    println(io, mol.box_info)
+
+    println(io, "Masses\n")
+
+    for (i, t) in pairs(mol.types)
+        join(io, (i, mol.masses[t], '\n'), ' ')
+    end
+
+    println(io, "\nPair Coeffs # lj/cut/coul/long\n")
+    for type in keys(mol.pair_coeffs)
+        ε, σ = mol.pair_coeffs[type]
+        join(io, (type, ε, σ, '\n'), ' ')
+    end
+
+    if !isempty(mol.bond_coeffs)
+        println(io, "\nBond Coeffs # harmonic\n")
+
+        for btype in keys(mol.bond_coeffs)
+            k, r0 = mol.bond_coeffs[btype]
+            join(io, (btype, k, r0, '\n'), ' ')
+        end
+    end
+
+    if !isempty(mol.angle_coeffs)
+        println(io, "\nAngle Coeffs # harmonic\n")
+
+        for atype in 1:length(mol.angle_coeffs)
+            k, θ0 = mol.angle_coeffs[atype]
+            join(io, (atype, k, θ0, '\n'), ' ')
+        end
+    end
+
+    if !isempty(mol.dihed_coeffs)
+        println(io, "\nDihedral Coeffs # opls\n")
+
+        for dtype in 1:length(mol.dihed_coeffs)
+            c1, c2, c3, c4 = mol.dihed_coeffs[dtype]
+            join(io, (dtype, c1, c2, c3, c4, '\n'), ' ')
+        end
+    end
+
+    if !isempty(mol.improper_coeffs)
+        println(io, "\nImproper Coeffs # cvff\n")
+        for itype in 1:length(mol.improper_coeffs)
+            k, d, n = mol.improper_coeffs[itype]
+            join(io, (itype, k, d, n, '\n'), ' ')
+        end
+    end
+
+    println(io, "\nAtoms\n")
+    for (i, (x, y, z)) in pairs(mol.coords)
+        join(io, (i, 1, mol.types[i], round(mol.charges[i]; digits=6), x, y, z, '\n'), ' ')
+    end
+
+    println(io, "\nBonds\n")
+    for (i, (a, b)) in pairs(mol.bonds)
+        join(io, (i, i, a, b, '\n'), ' ')
+    end
+
+    println(io, "\nAngles\n")
+    for (i, (a, b, c)) in pairs(mol.angles)
+        join(io, (i, i, a, b, c, '\n'), ' ')
+    end
+
+    if !isempty(mol.diheds)
+        println(io, "\nDihedrals\n")
+        for (i, (a, b, c, d)) in pairs(mol.diheds)
+            join(io, (i, i, a, b, c, d, '\n'), ' ')
+        end
+    end
+
+    if !isempty(mol.improps)
+        println(io, "\nImpropers\n")
+        for (i, (a, b, c, d)) in pairs(mol.improps)
+            join(io, (i, i, a, b, c, d, '\n'), ' ')
+        end
     end
 end

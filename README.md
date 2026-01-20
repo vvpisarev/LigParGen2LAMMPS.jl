@@ -34,31 +34,30 @@ Read the datafile produced by LigParGen from `ligpargenfile`. `ligpargenfile` ma
     I/O stream or a file name.
 
 # Keywords
-* `compress_types::Bool=true`: mark particles with the same LJ parameters as the same type
-* `compress_btypes::Bool=true`: mark bonds with the same parameters as the same type
-* `compress_atypes::Bool=true`: mark angles with the same parameters as the same type
-* `compress_dtypes::Bool=true`: mark dihedrals with the same parameters as the same type
-* `compress_itypes::Bool=true`: mark impropers with the same parameters as the same type
 * `net_charge=nothing`: if set to a number, the charges will be tweaked so that the total
     charge equals to the specified value. If set to `nothing`, the charges will be tweaked
     so that the net charge is the nearest integer value
 
-    write_mol(f, ligpargenfile::AbstractString)
+    export_mol(f, ligpargenfile::AbstractString)
 
 Read the molecular topology from file named `ligpargenfile` and write it into `f`
     in a format that can be read by LAMMPS `molecule` command. `f` can be an I/O stream 
     or a filename.
 
-    write_ff(f, ligpargenfile::AbstractString)
+    export_ff(f, ligpargenfile::AbstractString)
 
 Read the molecular topology from file named `ligpargenfile` and write its forcefield
     into `f` in a format compatible to LAMMPS input script. `f` can be an I/O stream 
     or a filename.
 
-    write_mol_and_ff(fmask::AbstractString, ligpargenfile::AbstractString)
+    export_mol_and_ff(fmask::AbstractString, ligpargenfile::AbstractString)
 
 Read the molecular topology and forcefield parameters from `ligpargenfile` and write them
     into files "fmask.txt" and "fmask.ff", respectively.
+
+    export_data(f, mol::Molecule[; ff, charge_model])
+
+Write the molecular topology and forcefield parameters of `mol` as LAMMPS data file.
 
 ## References
 

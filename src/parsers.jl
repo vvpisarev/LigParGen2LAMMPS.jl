@@ -26,7 +26,7 @@ function parse_header(io)
             ndtypes = parse(Int, rstrip(!isdigit, datastr))
         elseif endswith(datastr, "improper types")
             nitypes = parse(Int, rstrip(!isdigit, datastr))
-        elseif endswith(datastr, "lo")
+        elseif endswith(datastr, "hi")
             append!(boxinfo_buf, codeunits(datastr), ('\n',))
         else
             @warn "Unused header line: $datastr"
