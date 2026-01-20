@@ -1,9 +1,30 @@
 """
-    write_mol(f, mol::Molecule)
+    export_mol(f, mol::Molecule[; ff, charge_model])
 
 Write the molecular topology of `mol` into `f`. `f` can be an I/O stream or a filename.
 """
-function write_mol(io, mol::Molecule)
+function export_mol(io, mol::Molecule; ff=:opls_aa_ligpargen, charge_model=:cm1a)
+    alt_base = deepcopy(mol.base)
+    remove_null_dihedrals!(alt_base)
+    mol.compress_types && compress_types!(alt_base, mol.typenames)
+    # mol.compress_btypes && compress_btypes!(alt_base)
+    # mol.compress_atypes && compress_atypes!(alt_base)
+    # mol.compress_dtypes && compress_dtypes!(alt_base)
+    # mol.compress_itypes && compress_itypes!(alt_base)
+    return nothing
+end
+
+function export_mol(
+    fname::AbstractString, mol::Molecule,
+    ;
+    ff=:opls_aa_ligpargen, charge_model=:cm1a,
+)
+    open(fname, "w") do io
+        export_mol(io, mol)
+    end
+end
+
+function __write_mol(io::IO, mol::LigParGenMolecule)
     println(io, mol.comment)
     println(io, length(mol.coords), " atoms")
     println(io, length(mol.bonds), " bonds")
@@ -22,41 +43,42 @@ function write_mol(io, mol::Molecule)
     !isempty(mol.improps) && print_impropers(io, mol.improps)
 end
 
-function write_mol(fname::AbstractString, mol::Molecule)
-    open(fname, "w") do io
-        write_mol(io, mol)
-    end
-end
-
 """
-    write_mol(f, ligpargenfile::AbstractString)
+    export_mol(f, ligpargenfile::AbstractString)
 
 Read the molecular topology from file named `ligpargenfile` and write it into `f`. `f` can
     be an I/O stream or a filename.
 """
-write_mol(f, mol::AbstractString; kw...) = write_mol(f, read_lpg_data(mol, kw...))
+function export_mol(f, mol::AbstractString; ff=:opls_aa_ligpargen, charge_model=:cm1a, kw...)
+    export_mol(f, read_lpg_data(mol, kw...); ff, charge_model)
+end
 
 """
-    write_ff(f, mol::Molecule; include_charge=true, ff=nothing, charge=nothing)
+    export_ff(f, mol::Molecule; include_charge=true, ff=nothing, charge=nothing)
 
 Write the forcefield parameters of `mol` into `f`. `f` can be an I/O stream or a filename.
     `ff` can be specified as `:opls_aa` or `:opls_aa_2020`, `charge` can be specified as
     `:opls_aa`.
 """
-function write_ff(f, mol::Molecule; ff=nothing, charge=nothing)
-    molcopy = switch_ff(mol, ff)
-    switch_charge!(molcopy, charge)
-    __write_ff(f, molcopy)
+function export_ff(f, mol::Molecule; ff=:opls_aa_ligpargen, charge_model=:cm1a)
+    alt_base = deepcopy(mol.base)
+    remove_null_dihedrals!(alt_base)
+    switch_ff!(alt_base, mol.typenames, ff)
+    switch_charge!(alt_base, mol.typenames, charge_model)
+    __write_ff(f, alt_base)
+    return nothing
 end
 
-function __write_ff(io, mol::Molecule)
+function __write_ff(io, mol::LigParGenMolecule)
     println(io,
     """
     pair_style        lj/cut/coul/long 12.0
     bond_style        harmonic
     angle_style       harmonic
-    dihedral_style    opls
-    improper_style    cvff
+    """ *
+    (isempty(mol.diheds) ? "" : "dihedral_style    opls\n") *
+    (isempty(mol.improps) ? "" : "improper_style    cvff\n") *
+    """
     special_bonds     lj/coul 0.0 0.0 0.5
     pair_modify       mix geometric
     """)
@@ -100,35 +122,47 @@ function __write_ff(io, mol::Molecule)
         join(io, ("improper_coeff    ", itype, k, d, n, '\n'), ' ')
     end
 
+    println(io)
+
     for (k, q) in pairs(mol.charges)
-        join(io, ("set    type ", k, " charge ", q, '\n'))
+        join(io, ("set    type ", k, " charge ", round(q; digits=5), '\n'))
     end
 end
 
-function __write_ff(fname::AbstractString, mol::Molecule)
+function export_ff(fname::AbstractString, mol::LigParGenMolecule; kw...)
     open(fname, "w") do io
-        write_ff(io, mol)
+        export_ff(io, mol; kw...)
     end
 end
 
 """
-    write_ff(f, ligpargenfile::AbstractString)
+    export_ff(f, ligpargenfile::AbstractString)
 
 Read the molecular topology from file named `ligpargenfile` and write its forcefield
     into `f`. `f` can be an I/O stream or a filename.
 """
-write_ff(f, mol::AbstractString; kw...) = write_ff(f, read_lpg_data(mol; kw...))
+function export_ff(f, mol::AbstractString; ff=:opls_aa_ligpargen, charge_model=:cm1a, kw...)
+    export_ff(f, read_lpg_data(mol; kw...); ff, charge_model)
+end
 
 """
-    write_mol_and_ff(fmask::AbstractString, mol::Molecule)
+    export_mol_and_ff(fmask::AbstractString, mol::Molecule)
 
 Write files "fmask.txt" and "fmask.ff" with molecular topology
 and forcefield parameters of `mol`, respectively.
 """
-function write_mol_and_ff(fmask::AbstractString, mol::Molecule)
+function export_mol_and_ff(
+    fmask::AbstractString, mol::Molecule,
+    ;
+    ff=:opls_aa_ligpargen, charge_model=:cm1a,
+)
+    alt_base = deepcopy(mol.base)
+    remove_null_dihedrals!(alt_base)
+    switch_ff!(alt_base, mol.typenames, ff)
+    switch_charge!(alt_base, mol.typenames, charge_model)
     @sync begin
-        @async write_ff("$fmask.ff", mol)
-        @async write_mol("$fmask.txt", mol)
+        @async __write_ff("$fmask.ff", mol)
+        @async __write_mol("$fmask.txt", mol)
     end
     return
 end
@@ -172,32 +206,36 @@ end
 
 function print_bonds(io, bonds::Vector)
     println(io, "\nBonds\n")
-    for i in 1:length(bonds)
-        (a1, a2), type = bonds[i]
+    for i in keys(bonds)
+        (a1, a2) = bonds[i]
+        type = i
         join(io, (i, type, a1, a2, '\n'), ' ')
     end
 end
 
 function print_angles(io, angles::Vector)
     println(io, "\nAngles\n")
-    for i in 1:length(angles)
-        (a1, a2, a3), type = angles[i]
+    for i in keys(angles)
+        (a1, a2, a3) = angles[i]
+        type = i
         join(io, (i, type, a1, a2, a3, '\n'), ' ')
     end
 end
 
 function print_dihedrals(io, dihed::Vector)
     println(io, "\nDihedrals\n")
-    for i in 1:length(dihed)
-        (a1, a2, a3, a4), type = dihed[i]
+    for i in keys(dihed)
+        (a1, a2, a3, a4) = dihed[i]
+        type = i
         join(io, (i, type, a1, a2, a3, a4, '\n'), ' ')
     end
 end
 
 function print_impropers(io, impropers::Vector)
     println(io, "\nImpropers\n")
-    for i in 1:length(impropers)
-        (a1, a2, a3, a4), type = impropers[i]
+    for i in keys(impropers)
+        (a1, a2, a3, a4) = impropers[i]
+        type = i
         join(io, (i, type, a1, a2, a3, a4, '\n'), ' ')
     end
 end

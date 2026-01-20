@@ -2,6 +2,7 @@ function parse_header(io)
     natom = nbond = nangle = ndihedral = nimproper = 0
     ntypes = nbtypes = natypes = ndtypes = nitypes = 0
 
+    boxinfo_buf = UInt8[]
     while !isuppercase(peek(io, Char))
         datastr = readline(io) |> strip
         isempty(datastr) && continue
@@ -25,12 +26,14 @@ function parse_header(io)
             ndtypes = parse(Int, rstrip(!isdigit, datastr))
         elseif endswith(datastr, "improper types")
             nitypes = parse(Int, rstrip(!isdigit, datastr))
+        elseif endswith(datastr, "lo")
+            append!(boxinfo_buf, codeunits(datastr), ('\n',))
         else
             @warn "Unused header line: $datastr"
         end
     end
     natom, nbond, nangle, ndihedral, nimproper,
-    ntypes, nbtypes, natypes, ndtypes, nitypes
+    ntypes, nbtypes, natypes, ndtypes, nitypes, String(boxinfo_buf)
 end
 
 function read_masses!(mol::LigParGenMolecule, io::IO, natoms::Integer)

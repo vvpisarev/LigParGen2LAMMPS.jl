@@ -30,6 +30,7 @@ Base.@kwdef struct LigParGenMolecule
     improper_coeffs::Vector{Tuple{Float64,Int8,Int8}} = Tuple{Float64,Int8,Int8}[]
 
     comment::String
+    box_info::String
 end
 
 struct Molecule
@@ -68,9 +69,14 @@ function read_lpg_data(
     net_charge::Union{Nothing,Real}=nothing,
 )
     comment = readline(io)
-    molstruct = LigParGenMolecule(comment = comment[1] == '#' ? comment : "#" * comment)
     natom, nbond, nangle, ndihedral, nimproper,
-    ntypes, nbtypes, natypes, ndtypes, nitypes = parse_header(io)
+    ntypes, nbtypes, natypes, ndtypes, nitypes, box_info = parse_header(io)
+
+    molstruct = LigParGenMolecule(
+        ;
+        comment = comment[1] == '#' ? comment : "#" * comment,
+        box_info,
+    )
 
     resize!(molstruct.coords, natom)
     resize!(molstruct.types, natom)
