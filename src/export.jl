@@ -132,7 +132,7 @@ function __write_ff(io, mol::LigParGenMolecule)
     end
 end
 
-function export_ff(fname::AbstractString, mol::LigParGenMolecule; kw...)
+function export_ff(fname::AbstractString, mol::Molecule; kw...)
     open(fname, "w") do io
         export_ff(io, mol; kw...)
     end
