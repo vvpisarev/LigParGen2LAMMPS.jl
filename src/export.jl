@@ -3,10 +3,13 @@
 
 Write the molecular topology of `mol` into `f`. `f` can be an I/O stream or a filename.
 """
-function export_mol(io, mol::Molecule; ff=:opls_aa_ligpargen, charge_model=:cm1a)
+function export_mol(io::IO, mol::Molecule; ff=:opls_aa_ligpargen, charge_model=:cm1a)
     alt_base = deepcopy(mol.base)
     remove_null_dihedrals!(alt_base)
-    mol.compress_types && compress_types!(alt_base, mol.typenames)
+    switch_ff!(alt_base, mol.typenames, ff)
+    switch_charge!(alt_base, mol.typenames, charge_model)
+    __write_mol(io, alt_base)
+    # mol.compress_types && compress_types!(alt_base, mol.typenames)
     # mol.compress_btypes && compress_btypes!(alt_base)
     # mol.compress_atypes && compress_atypes!(alt_base)
     # mol.compress_dtypes && compress_dtypes!(alt_base)
@@ -60,7 +63,7 @@ Write the forcefield parameters of `mol` into `f`. `f` can be an I/O stream or a
     `ff` can be specified as `:opls_aa` or `:opls_aa_2020`, `charge` can be specified as
     `:opls_aa`.
 """
-function export_ff(f, mol::Molecule; ff=:opls_aa_ligpargen, charge_model=:cm1a)
+function export_ff(f::IO, mol::Molecule; ff=:opls_aa_ligpargen, charge_model=:cm1a)
     alt_base = deepcopy(mol.base)
     remove_null_dihedrals!(alt_base)
     switch_ff!(alt_base, mol.typenames, ff)
